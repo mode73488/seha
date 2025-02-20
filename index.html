@@ -1,0 +1,242 @@
+﻿<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>أداة فحص SEO المتقدمة</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            text-align: center;
+            padding: 20px;
+            margin: 0;
+        }
+        h1 {
+            color: #333;
+        }
+        input {
+            width: 80%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #007bff;
+            border: none;
+            color: white;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #results {
+            margin-top: 20px;
+            text-align: left;
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            max-width: 600px;
+            margin: auto;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+        #loading {
+            display: none;
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .good {
+            color: green;
+        }
+        .bad {
+            color: red;
+        }
+        .warning {
+            color: orange;
+        }
+        .broken-links {
+            margin-top: 20px;
+            text-align: left;
+        }
+        .broken-links ul {
+            list-style-type: disc;
+            padding-left: 20px;
+        }
+        .progress-bar {
+            width: 100%;
+            background-color: #ddd;
+            border-radius: 5px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .progress {
+            height: 20px;
+            background-color: #007bff;
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+        .export-btn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .export-btn:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <h1>🛠️ أداة فحص SEO المتقدمة</h1>
+    <p>أدخل رابط الصفحة التي تريد تحليلها:</p>
+    <input type="text" id="urlInput" placeholder="https://example.com">
+    <button onclick="analyzeSEO()">🔍 فحص SEO</button>
+    <div class="progress-bar">
+        <div class="progress" id="progress"></div>
+    </div>
+    <p id="loading">⏳ جاري التحليل... يرجى الانتظار</p>
+    <div id="results"></div>
+    <div class="broken-links" id="brokenLinks"></div>
+    <button class="export-btn" id="exportBtn" style="display: none;" onclick="exportReport()">📥 تصدير التقرير</button>
+
+    <script>
+        let resultsData = [];
+
+        async function analyzeSEO() {
+            let url = document.getElementById("urlInput").value.trim();
+            let resultsDiv = document.getElementById("results");
+            let brokenLinksDiv = document.getElementById("brokenLinks");
+            let loadingText = document.getElementById("loading");
+            let progress = document.getElementById("progress");
+            let exportBtn = document.getElementById("exportBtn");
+
+            resultsDiv.innerHTML = "";
+            brokenLinksDiv.innerHTML = "";
+            resultsData = [];
+            exportBtn.style.display = "none";
+
+            if (!url) {
+                resultsDiv.innerHTML = `<p class="bad">❌ الرجاء إدخال رابط الصفحة.</p>`;
+                return;
+            }
+
+            loadingText.style.display = "block";
+            progress.style.width = "0%";
+
+            try {
+                // تحديث شريط التقدم
+                updateProgress(10);
+
+                // جلب بيانات الصفحة
+                let response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+                let data = await response.json();
+                let parser = new DOMParser();
+                let doc = parser.parseFromString(data.contents, "text/html");
+
+                // تحديث شريط التقدم
+                updateProgress(30);
+
+                // تحليل العناصر الأساسية
+                let title = doc.querySelector("title");
+                let metaDescription = doc.querySelector("meta[name='description']");
+                let images = doc.querySelectorAll("img");
+                let h1Tags = doc.querySelectorAll("h1");
+                let links = doc.querySelectorAll("a");
+                let robotsMeta = doc.querySelector("meta[name='robots']");
+
+                // النتائج
+                let results = [];
+                results.push(title ? `<p class="good">✔️ العنوان: <strong>${title.innerText}</strong></p>` : `<p class="bad">❌ لا يوجد عنوان للصفحة.</p>`);
+                results.push(metaDescription ? `<p class="good">✔️ الوصف: <strong>${metaDescription.getAttribute("content")}</strong></p>` : `<p class="bad">❌ لا يوجد وصف للصفحة.</p>`);
+                results.push(h1Tags.length === 1 ? `<p class="good">✔️ يوجد عنوان H1 واحد.</p>` : `<p class="bad">⚠️ يوجد ${h1Tags.length} عنوان H1.</p>`);
+                results.push(robotsMeta ? `<p class="good">✔️ ملف robots.txt: <strong>${robotsMeta.getAttribute("content")}</strong></p>` : `<p class="warning">⚠️ لم يتم العثور على ملف robots.txt.</p>`);
+
+                // تحليل الصور
+                let missingAlt = [...images].filter(img => !img.hasAttribute("alt") || img.getAttribute("alt").trim() === "").length;
+                results.push(missingAlt === 0 ? `<p class="good">✔️ جميع الصور تحتوي على وسم alt.</p>` : `<p class="bad">⚠️ يوجد ${missingAlt} صورة بدون وسم alt!</p>`);
+
+                // تحليل الروابط
+                let internalLinks = 0, externalLinks = 0, brokenLinks = [];
+                for (let link of links) {
+                    let href = link.href;
+
+                    // تجاهل الروابط غير الصحيحة أو التي لا تبدأ بـ http/https
+                    if (!href || !href.startsWith("http")) continue;
+
+                    try {
+                        let linkResponse = await fetch(href, { method: 'HEAD', redirect: 'follow' });
+                        if (!linkResponse.ok) {
+                            brokenLinks.push(href);
+                        }
+                    } catch (e) {
+                        // إذا كان هناك خطأ (مثل CORS)، نضيف الرابط إلى قائمة المشاكل المحتملة
+                        brokenLinks.push(href);
+                    }
+
+                    if (href.includes(new URL(url).hostname)) {
+                        internalLinks++;
+                    } else {
+                        externalLinks++;
+                    }
+                }
+                results.push(`<p class="good">🔗 الروابط الداخلية: ${internalLinks} | الروابط الخارجية: ${externalLinks}</p>`);
+                if (brokenLinks.length === 0) {
+                    results.push(`<p class="good">✔️ جميع الروابط تعمل بشكل صحيح.</p>`);
+                } else {
+                    results.push(`<p class="bad">⚠️ يوجد ${brokenLinks.length} روابط معطلة أو بها مشاكل!</p>`);
+                    brokenLinksDiv.innerHTML = `
+                        <p class="bad">⚠️ الروابط المعطلة أو بها مشاكل:</p>
+                        <ul>${brokenLinks.map(link => `<li><a href="${link}" target="_blank">${link}</a></li>`).join("")}</ul>
+                    `;
+                }
+
+                // تحديث شريط التقدم
+                updateProgress(70);
+
+                // عرض النتائج
+                displayResults(results);
+
+                // تحديث شريط التقدم
+                updateProgress(100);
+
+                // إظهار زر التصدير
+                exportBtn.style.display = "inline-block";
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="bad">❌ حدث خطأ أثناء جلب البيانات.</p>`;
+            } finally {
+                loadingText.style.display = "none";
+            }
+        }
+
+        function displayResults(results) {
+            let resultsDiv = document.getElementById("results");
+            resultsData = results; // تخزين النتائج لتصديرها لاحقًا
+            resultsDiv.innerHTML = results.join("");
+        }
+
+        function updateProgress(percent) {
+            let progress = document.getElementById("progress");
+            progress.style.width = `${percent}%`;
+        }
+
+        function exportReport() {
+            let blob = new Blob([resultsData.join("\n")], { type: "text/plain;charset=utf-8" });
+            let url = URL.createObjectURL(blob);
+            let a = document.createElement("a");
+            a.href = url;
+            a.download = "seo-report.txt";
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
